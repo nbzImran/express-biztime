@@ -17,28 +17,48 @@ router.get("/", async (req, res, next) => {
   }
 });
 
-// GET /[code] => Company details with invoices
+// GET /[code] => Company details with invoices and industries
 router.get("/:code", async (req, res, next) => {
   try {
     let code = req.params.code;
+
     const compResult = await db.query(
-      `SELECT code, name, description FROM companies WHERE code = $1`,
+      `SELECT code, name, description 
+       FROM companies 
+       WHERE code = $1`,
       [code]
     );
+
     const invResult = await db.query(
-      `SELECT id FROM invoices WHERE comp_code = $1`,
+      `SELECT id 
+       FROM invoices 
+       WHERE comp_code = $1`,
       [code]
     );
+
+    const industryResult = await db.query(
+      `SELECT i.industry 
+       FROM industries i 
+       JOIN company_industries ci 
+       ON i.code = ci.industry_code 
+       WHERE ci.company_code = $1`,
+      [code]
+    );
+
     if (compResult.rows.length === 0) {
       throw new ExpressError(`No such company: ${code}`, 404);
     }
+
     const company = compResult.rows[0];
     company.invoices = invResult.rows.map(inv => inv.id);
-    return res.json({ "company": company });
+    company.industries = industryResult.rows.map(ind => ind.industry);
+
+    return res.json({ company });
   } catch (err) {
     return next(err);
   }
 });
+
 
 // POST / => Add a new company
 router.post("/", async (req, res, next) => {
